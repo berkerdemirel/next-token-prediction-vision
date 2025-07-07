@@ -1,0 +1,9 @@
+name: cifar100
+
+_target_: src.datamodules.cifar100_datamodule.CIFAR100DataModule
+data_dir: "data/"
+batch_size: 64
+
+# Data-specific model parameters
+vocab_size: 256
+block_size: 3072 # 3*32*32

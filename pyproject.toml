@@ -1,0 +1,21 @@
+[project]
+name = "next-token-prediction-vision"
+version = "0.1.0"
+description = "A project to explore next-token prediction for vision tasks."
+authors = []
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "torch",
+    "torchvision",
+    "pytorch-lightning",
+    "hydra-core",
+    "wandb",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
