@@ -1,8 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-src/next_token_prediction_vision.egg-info/PKG-INFO
-src/next_token_prediction_vision.egg-info/SOURCES.txt
-src/next_token_prediction_vision.egg-info/dependency_links.txt
-src/next_token_prediction_vision.egg-info/requires.txt
-src/next_token_prediction_vision.egg-info/top_level.txt
