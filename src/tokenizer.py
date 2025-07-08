@@ -58,14 +58,20 @@ class VQVAETokenizer:
         """Returns the size of the VQ-VAE's codebook."""
         return self.vqvae.quantize.num_embeddings
 
-    def get_block_size(self) -> int:
-        """Returns the flattened sequence length of the tokens."""
-        # Calculate the output size of the encoder
-        input_size = self.vqvae.config.sample_size
-        down_blocks = self.vqvae.config.num_down_blocks
-        block_out_channels = self.vqvae.config.block_out_channels
+    def get_sequence_length(self) -> int:
+        """
+        Returns the actual sequence length that the tokenizer produces.
         
-        # This logic assumes standard strided convolutions in the encoder
-        # A more robust way might be needed if the encoder architecture varies
-        final_size = input_size // (2 ** down_blocks)
-        return final_size * final_size
+        This is determined by doing a dummy forward pass.
+        """
+        # Create a dummy input tensor
+        dummy_input = torch.randn(
+            1,
+            self.num_channels,
+            self.vqvae.config.sample_size,
+            self.vqvae.config.sample_size,
+        )
+        # Encode the dummy input
+        token_indices = self.encode(dummy_input)
+        # Return the actual sequence length produced by the tokenizer
+        return token_indices.shape[1]

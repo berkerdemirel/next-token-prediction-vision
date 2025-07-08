@@ -2,7 +2,7 @@ name: cifar100_vqvae
 
 _target_: src.datamodules.cifar100_datamodule.CIFAR100DataModule
 data_dir: "data/"
-batch_size: 64
+batch_size: 32
 
 # Data-specific model parameters
 vocab_size: 16384

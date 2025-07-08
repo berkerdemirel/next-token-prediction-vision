@@ -33,32 +33,58 @@ class LitGPT(pl.LightningModule):
         if self.use_vqvae:
             self.tokenizer = VQVAETokenizer(self.vqvae_path, device=self.device)
 
-    def _prepare_batch(self, batch):
+    def _prepare_batch(self, batch, *, max_windows_per_image: int = 8):
         """
-        Prepares a batch for the model.
-        If using VQ-VAE, it tokenizes the images.
-        Otherwise, it flattens the pixels into a sequence.
-        """
-        images, _ = batch  # We don't need the labels (y) for next-token prediction
+        Tokenise images and build (input, target) windows for next-token prediction.
 
+        Each image contributes up to `max_windows_per_image` random windows.
+        If the sequence is shorter than or equal to `block_size`, we return a single pair.
+        """
+        images, _ = batch
+
+        # --- 1. Tokenise --------------------------------------------------------
         if self.use_vqvae:
             if self.tokenizer is None:
-                raise RuntimeError("VQ-VAE tokenizer has not been initialized. Did you forget to call setup()?")
-            # Tokenize images into a sequence of discrete tokens
-            # Input shape: (B, C, H, W) -> Output shape: (B, S)
-            sequences = self.tokenizer.encode(images)
+                raise RuntimeError("VQ-VAE tokenizer not initialised; call setup() first.")
+            seq = self.tokenizer.encode(images)              # (B, S)
         else:
-            # Fallback to raw pixels
-            # Input shape: (B, C, H, W) -> Output shape: (B, S)
-            # Also, scale pixels to 0-255 and cast to long
-            sequences = (images.view(images.size(0), -1) * 255).long()
+            seq = (images.view(images.size(0), -1)           # (B, S)
+                        .mul(255).round()
+                        .to(torch.long))
 
-        # The input to the model is the sequence from the beginning to the second to last token
-        idx = sequences[:, :-1]
-        # The target for the model is the sequence from the second token to the end
-        targets = sequences[:, 1:]
+        seq = seq.to(self.device)
+        B, S = seq.shape
+        K = self.model.block_size          # context length
 
-        return idx, targets
+        # --- 2. Short sequences -------------------------------------------------
+        if S <= K:                         # no windowing needed
+            return seq[:, :-1], seq[:, 1:]
+
+        # --- 3. Build all windows as a single strided view ----------------------
+        # windows_all : (B, num_windows, K+1)
+        num_windows = S - K
+        windows_all = seq.unfold(1, K + 1, 1)                # zero-copy view
+
+        # --- 4. Randomly sample ≤ max_windows_per_image per sample -------------
+        if num_windows > max_windows_per_image:
+            # indices: (B, max_windows_per_image) without replacement
+            idx = torch.arange(num_windows, device=seq.device)
+            idx = idx.expand(B, num_windows)
+            rand = torch.rand_like(idx.float())              # same shape
+            perm = rand.argsort(dim=1)                       # random permutation
+            idx = idx.gather(1, perm[:, :max_windows_per_image])
+            # Gather needs an extra dim for broadcasting
+            idx_exp = idx.unsqueeze(-1).expand(-1, -1, K + 1)
+            windows = windows_all.gather(1, idx_exp)         # (B, M, K+1)
+        else:
+            windows = windows_all                            # keep them all
+
+        # --- 5. Split into inputs / targets and flatten batch ------------------
+        # windows is (B, M, K+1) where M ≤ max_windows_per_image
+        inputs  = windows[..., :-1].reshape(-1, K)           # (B*M, K)
+        targets = windows[..., 1: ].reshape(-1, K)           # (B*M, K)
+
+        return inputs, targets
 
     def forward(self, idx, targets=None):
         return self.model(idx, targets)
