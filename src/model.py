@@ -88,6 +88,9 @@ class GPT(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.block_size = config.block_size
+        self.n_embd = config.n_embd  # Add this line
+        self.vocab_size = config.vocab_size # Add this line
+
         self.transformer = nn.ModuleDict(dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             wpe=nn.Embedding(config.block_size, config.n_embd),
@@ -121,3 +124,32 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1), ignore_index=-1)
 
         return logits, loss
+
+    def get_features(self, idx, last_token_only=True):
+        device = idx.device
+        b, t = idx.size()
+        assert t <= self.block_size, f"Sequence length {t} exceeds block size {self.block_size}"
+
+        pos = torch.arange(0, t, dtype=torch.long, device=device).unsqueeze(0)
+        tok_emb = self.transformer.wte(idx)
+        pos_emb = self.transformer.wpe(pos)
+        x = self.transformer.drop(tok_emb + pos_emb)
+
+        for block in self.transformer.h:
+            x = block(x)
+        
+        x = self.transformer.ln_f(x)
+        if last_token_only:
+            return x[:, -1, :] # (B, C)
+        else:
+            return x # (B, T, C)
+    
+    def get_features_long(self, idx):
+        """Get features for a sequence longer than the block size."""
+        final_features = []
+        # Process the sequence in chunks of block_size
+        for i in range(0, idx.size(1), self.block_size):
+            chunk = idx[:, i : i + self.block_size]
+            features = self.get_features(chunk)
+            final_features.append(features)
+        return torch.cat(final_features, dim=1)

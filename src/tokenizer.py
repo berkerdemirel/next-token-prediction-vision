@@ -17,8 +17,8 @@ class VQVAETokenizer:
             vqvae_path (str): The path to the pretrained VQ-VAE model on Hugging Face Hub.
             device (str): The device to load the model on ('cpu' or 'cuda').
         """
-        self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").eval()
-        # self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").to(device).eval()
+        # self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").eval()
+        self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").to(device).eval()
         self.device = device
         self.num_channels = self.vqvae.config.in_channels
 
