@@ -1,8 +1,6 @@
 import hydra
 from omegaconf import DictConfig
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
 
 from src.lit_model import LitGPT
 
@@ -24,19 +22,11 @@ def train(cfg: DictConfig) -> None:
     # --- Instantiate Model --- #
     # The model config is nested under the data config to get vocab_size and block_size
     model_config = hydra.utils.instantiate(cfg.model)
-    model = LitGPT(model_config, lr=cfg.lr)
-
-    # --- Instantiate Logger and Checkpoint --- #
-    logger = hydra.utils.instantiate(cfg.trainer.logger)
-    checkpoint_callback = hydra.utils.instantiate(cfg.checkpoint)
+    model = LitGPT(model_config, lr=cfg.lit_model.lr)
 
     # --- Instantiate Trainer --- #
-    trainer_args = {
-        **cfg.trainer,
-        "logger": logger,
-        "callbacks": [checkpoint_callback],
-    }
-    trainer = pl.Trainer(**trainer_args)
+    # The trainer is now instantiated directly from the config, which includes the logger and callbacks
+    trainer = hydra.utils.instantiate(cfg.trainer)
 
     # --- Start Training --- #
     trainer.fit(model, datamodule=datamodule)

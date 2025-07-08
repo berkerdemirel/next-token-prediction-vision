@@ -1,27 +1,42 @@
 defaults:
   - model: gpt2_small
   - data: mnist
+  - lit_model: default
 
 # --- General --- #
 seed: 42
-lr: 1e-4
 
 # --- Trainer --- #
 trainer:
   _target_: pytorch_lightning.Trainer
   max_epochs: 10
-  accelerator: "auto"
+  accelerator: "gpu"
   devices: 1
   logger:
     _target_: pytorch_lightning.loggers.WandbLogger
     project: "next-token-prediction-vision"
     name: "${data.name}-${model.name}"
+  callbacks:
+    - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+      dirpath: "checkpoints/${data.name}/${model.name}"
+      filename: "{epoch:02d}-{val_loss:.2f}"
+      save_top_k: 1
+      monitor: "val_loss"
+      mode: "min"
+
+# --- Lightning Model --- #
+lit_model:
+  _target_: src.lit_model.LitGPT
+  lr: 1e-4
+  use_vqvae: false
+  vqvae_path: "CompVis/vq-gan-imagenet-f16-16384"
+  model_config: ${model}
 
 # --- Checkpointing --- #
-checkpoint:
-  _target_: pytorch_lightning.callbacks.ModelCheckpoint
-  dirpath: "checkpoints/${data.name}/${model.name}"
-  filename: "{epoch:02d}-{val_loss:.2f}"
-  save_top_k: 1
-  monitor: "val_loss"
-  mode: "min"
+# checkpoint:
+#   _target_: pytorch_lightning.callbacks.ModelCheckpoint
+#   dirpath: "checkpoints/${data.name}/${model.name}"
+#   filename: "{epoch:02d}-{val_loss:.2f}"
+#   save_top_k: 1
+#   monitor: "val_loss"
+#   mode: "min"

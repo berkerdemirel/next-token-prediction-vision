@@ -1,0 +1,9 @@
+name: mnist_vqvae
+
+_target_: src.datamodules.mnist_datamodule.MNISTDataModule
+data_dir: "data/"
+batch_size: 64
+
+# Data-specific model parameters
+vocab_size: 16384
+block_size: 256 # 16x16

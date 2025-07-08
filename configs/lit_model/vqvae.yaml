@@ -1,0 +1,4 @@
+_target_: src.lit_model.LitGPT
+lr: 1e-4
+use_vqvae: true
+vqvae_path: "CompVis/vq-gan-imagenet-f16-16384"
