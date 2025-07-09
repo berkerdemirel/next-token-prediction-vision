@@ -12,6 +12,9 @@ trainer:
   max_epochs: 10
   accelerator: "gpu"
   devices: 1
+  precision: 16-mixed # AMP / fp16
+  gradient_clip_val: 1.0
+  # accumulate_grad_batches can stay at 1; raise it if you hit VRAM limits
   logger:
     _target_: pytorch_lightning.loggers.WandbLogger
     project: "next-token-prediction-vision"
@@ -28,8 +31,8 @@ trainer:
 lit_model:
   _target_: src.lit_model.LitGPT
   lr: 1e-4
-  use_vqvae: false
-  vqvae_path: "CompVis/vq-gan-imagenet-f16-16384"
+  use_vqvae: true
+  vqvae_path: "CompVis/ldm-celebahq-256"
   model_config: ${model}
 
 # --- Checkpointing --- #

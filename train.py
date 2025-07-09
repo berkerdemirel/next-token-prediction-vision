@@ -22,8 +22,7 @@ def train(cfg: DictConfig) -> None:
     # --- Instantiate Model --- #
     # The model config is nested under the data config to get vocab_size and block_size
     model_config = hydra.utils.instantiate(cfg.model)
-    model = LitGPT(model_config, lr=cfg.lit_model.lr)
-
+    model = LitGPT(model_config, use_vqvae=cfg.lit_model.use_vqvae, vqvae_path=cfg.lit_model.vqvae_path, lr=cfg.lit_model.lr)
     # --- Instantiate Trainer --- #
     # The trainer is now instantiated directly from the config, which includes the logger and callbacks
     trainer = hydra.utils.instantiate(cfg.trainer)

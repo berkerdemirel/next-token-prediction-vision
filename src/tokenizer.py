@@ -1,7 +1,8 @@
 import torch
+import torch.nn.functional as F
 from diffusers import VQModel
 from torchvision import transforms
-import torch.nn.functional as F
+
 
 class VQVAETokenizer:
     """
@@ -9,7 +10,9 @@ class VQVAETokenizer:
     This class provides an interface to encode images into discrete tokens.
     """
 
-    def __init__(self, vqvae_path: str = "CompVis/ldm-celebahq-256", device: str = "cpu"):
+    def __init__(
+        self, vqvae_path: str = "CompVis/ldm-celebahq-256", device: str = "cpu"
+    ):
         """
         Initializes the VQVAETokenizer.
 
@@ -18,41 +21,58 @@ class VQVAETokenizer:
             device (str): The device to load the model on ('cpu' or 'cuda').
         """
         # self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").eval()
-        self.vqvae = VQModel.from_pretrained(vqvae_path, subfolder="vqvae").to(device).eval()
+        self.vqvae = (
+            VQModel.from_pretrained(
+                vqvae_path, subfolder="vqvae", sane_index_shape=True
+            )
+            .to(device)
+            .eval()
+        )
         self.device = device
         self.num_channels = self.vqvae.config.in_channels
 
         # Preprocessing transforms
-        self.resize = transforms.Resize((self.vqvae.config.sample_size, self.vqvae.config.sample_size))
-        self.normalize = transforms.Normalize(mean=[0.5] * self.num_channels, std=[0.5] * self.num_channels)
+        self.resize = transforms.Resize(
+            (self.vqvae.config.sample_size, self.vqvae.config.sample_size)
+        )
+        self.normalize = transforms.Normalize(
+            mean=[0.5] * self.num_channels, std=[0.5] * self.num_channels
+        )
 
     @torch.no_grad()
     def encode(self, images: torch.Tensor) -> torch.Tensor:
         """
-        Encodes a batch of images into sequences of token IDs.
+        Convert a batch of images to VQ-VAE token IDs.
 
-        Args:
-            images (torch.Tensor): A batch of images with shape (B, C, H, W).
-
-        Returns:
-            torch.Tensor: A batch of token ID sequences with shape (B, sequence_length).
+        Supports:
+        • uint8   tensors in [0,255]
+        • float32 tensors in [0,1]  (common torchvision)
+        • float32 tensors in [-1,1] (already pre-scaled)
+        Returns
+        -------
+        (B, S) LongTensor
         """
-        # The VQ-VAE might expect a different number of input channels
+        B = images.size(0)
+
+        # ---- 1. dtype & basic scaling ----------------------------------------
+        if images.dtype == torch.uint8:  # 0‥255 → 0‥1
+            images = images.to(torch.float32).div_(255.0)
+        elif images.amin() < -0.01:  # assume [-1,1] → 0‥1
+            images = images.add_(1.0).div_(2.0)
+        # else: already float 0‥1
+
+        # ---- 2. channel fix for grayscale inputs -----------------------------
         if images.shape[1] != self.num_channels:
-            # This is a simple way to handle grayscale to RGB, might need adjustment
-            images = images.repeat(1, self.num_channels, 1, 1)
+            repeat_factor = self.num_channels // images.shape[1]
+            images = images.repeat(1, repeat_factor, 1, 1)
 
-        processed_images = self.resize(images)
-        processed_images = self.normalize(processed_images)
-        # processed_images = processed_images.to(self.device)
-
-        # Encode the images into latent representations
-        latents = self.vqvae.encoder(processed_images)
-        # Quantize the latents to get token indices
-        _, _, [_, _, token_indices] = self.vqvae.quantize(latents)
-
-        # Flatten the token indices from (B, H, W) to (B, H*W)
-        return token_indices.view(token_indices.shape[0], -1)
+        # ---- 3. resize & single (0.5,0.5) normalisation ----------------------
+        images = self.resize(images)  # (B, C, 256, 256)
+        images = self.normalize(images)  # now in [-1,1]
+        # ---- 4. VQ-VAE forward ----------------------------------------------
+        latents = self.vqvae.encoder(images)
+        _, _, (_, _, idx) = self.vqvae.quantize(latents)  # (B*H'*W',)
+        return idx.reshape(B, -1).to(torch.long)  # (B, S)
 
     def get_vocab_size(self) -> int:
         """Returns the size of the VQ-VAE's codebook."""
@@ -61,7 +81,7 @@ class VQVAETokenizer:
     def get_sequence_length(self) -> int:
         """
         Returns the actual sequence length that the tokenizer produces.
-        
+
         This is determined by doing a dummy forward pass.
         """
         # Create a dummy input tensor
