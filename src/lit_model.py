@@ -35,6 +35,10 @@ class LitGPT(pl.LightningModule):
         """Initialize the tokenizer on the correct device."""
         if self.use_vqvae:
             self.tokenizer = VQVAETokenizer(self.vqvae_path, device=self.device)
+            self.model.config.vocab_size = self.tokenizer.vocab_size
+        else:
+            self.model.config.vocab_size = 256
+        self.model._init_weights()
 
     def _prepare_batch(self, batch, *, max_windows_per_image: int = 8):
         """

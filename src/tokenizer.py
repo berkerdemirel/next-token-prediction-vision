@@ -30,6 +30,7 @@ class VQVAETokenizer:
         )
         self.device = device
         self.num_channels = self.vqvae.config.in_channels
+        self.vocab_size = self.vqvae.quantize.n_e
 
         # Preprocessing transforms
         self.resize = transforms.Resize(
@@ -76,7 +77,7 @@ class VQVAETokenizer:
 
     def get_vocab_size(self) -> int:
         """Returns the size of the VQ-VAE's codebook."""
-        return self.vqvae.quantize.num_embeddings
+        return self.vqvae.quantize.n_e
 
     def get_sequence_length(self) -> int:
         """
