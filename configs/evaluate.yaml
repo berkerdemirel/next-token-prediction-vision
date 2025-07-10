@@ -1,0 +1,39 @@
+defaults:
+  - data: mnist_vqvae.yaml
+  - model: gpt2_small
+
+seed: 42
+
+model:
+  name: "gpt2_eval"
+
+# checkpoint path: null
+checkpoint_path: /nfs/scistore19/locatgrp/bdemirel/next-token-prediction-vision/outputs/2025-07-10/11-02-50/checkpoints/cifar100_vqvae/gpt2_small/epoch=08-val_loss=3.53.ckpt
+# checkpoint_path: /nfs/scistore19/locatgrp/bdemirel/next-token-prediction-vision/outputs/2025-07-09/15-59-59/checkpoints/mnist_vqvae/gpt2_small/epoch=06-val_loss=0.84.ckpt
+
+evaluator:
+  _target_: src.lit_eval.LitEvaluator
+  evaluate_classification: True
+  evaluate_reconstruction: True
+  lr: 3e-4
+  # num_classes: 10 # For MNIST
+  num_classes: 100 # For CIFAR100
+  gpt_model: null
+
+trainer:
+  _target_: pytorch_lightning.Trainer
+  accelerator: "auto"
+  devices: 1
+  max_epochs: 10 # We will "test" for 10 epochs to train the linear probe
+  logger:
+    _target_: pytorch_lightning.loggers.WandbLogger
+    project: "next-token-prediction-vision"
+    name: "${data.name}-${model.name}"
+
+# --- Lightning Model --- #
+lit_model:
+  _target_: src.lit_model.LitGPT
+  lr: 1e-4
+  use_vqvae: false
+  vqvae_path: "CompVis/ldm-celebahq-256"
+  model_config: ${model}
