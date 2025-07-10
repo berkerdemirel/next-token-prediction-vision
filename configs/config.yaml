@@ -5,6 +5,7 @@ defaults:
 
 # --- General --- #
 seed: 42
+ckpt_path: null # /nfs/scistore19/locatgrp/bdemirel/next-token-prediction-vision/outputs/2025-07-09/15-59-59/checkpoints/mnist_vqvae/gpt2_small/epoch=06-val_loss=0.84.ckpt
 
 # --- Trainer --- #
 trainer:
@@ -26,12 +27,14 @@ trainer:
       save_top_k: 1
       monitor: "val_loss"
       mode: "min"
+    - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+      logging_interval: "step"
 
 # --- Lightning Model --- #
 lit_model:
   _target_: src.lit_model.LitGPT
   lr: 1e-4
-  use_vqvae: true
+  use_vqvae: false
   vqvae_path: "CompVis/ldm-celebahq-256"
   model_config: ${model}
 

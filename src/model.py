@@ -180,6 +180,34 @@ class GPT(nn.Module):
         # Process the sequence in chunks of block_size
         for i in range(0, idx.size(1), self.block_size):
             chunk = idx[:, i : i + self.block_size]
-            features = self.get_features(chunk)
+            features = self.get_features(chunk, last_token_only=True)
             final_features.append(features)
-        return torch.cat(final_features, dim=1)
+        return torch.stack(final_features, dim=1)
+
+    # def get_features_long(self, idx):
+    #     """
+    #     Extract hidden states for sequences longer than block_size.
+
+    #     Parameters
+    #     ----------
+    #     idx : (B, S) LongTensor
+    #         Full sequence of token IDs.
+
+    #     Returns
+    #     -------
+    #     feats : (B, S, n_embd) FloatTensor
+    #         One hidden state per token, ready for any pooling you like
+    #         (mean-pool, CLS-attention, etc.).
+    #     """
+    #     B, S = idx.shape
+    #     if S <= self.block_size:
+    #         # short case – no chunking needed
+    #         return self.get_features(idx, last_token_only=False)  # (B, S, C)
+
+    #     chunks = []
+    #     for start in range(0, S, self.block_size):
+    #         end = start + self.block_size
+    #         chunk = idx[:, start:end]  # (B, L≤block, )
+    #         h = self.get_features(chunk, last_token_only=False)  # (B, L, C)
+    #         chunks.append(h)
+    #     return torch.cat(chunks, dim=1)  # (B, S, C)

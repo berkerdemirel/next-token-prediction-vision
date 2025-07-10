@@ -102,6 +102,7 @@ class LitGPT(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         idx, targets = self._prepare_batch(batch)
         _, loss = self.forward(idx, targets)
+        # breakpoint()
         self.log("train_loss", loss, prog_bar=True)
         return loss
 

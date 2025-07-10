@@ -96,3 +96,14 @@ class VQVAETokenizer:
         token_indices = self.encode(dummy_input)
         # Return the actual sequence length produced by the tokenizer
         return token_indices.shape[1]
+
+    def to(self, device: str):
+        """
+        Move the tokenizer to a specified device.
+
+        Args:
+            device (str): The target device ('cpu' or 'cuda').
+        """
+        self.vqvae.to(device)
+        self.device = device
+        return self
